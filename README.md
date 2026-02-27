@@ -166,7 +166,5 @@ pytest tests/ -v
 
 Tests use mocked external APIs. Ensure `OPENAI_API_KEY` and `APIFY_API_TOKEN` are set (e.g. in `.env`) so config loads.
 
-## License
 
-MIT License. See [LICENSE](LICENSE) for details.
 
