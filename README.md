@@ -48,7 +48,7 @@ This application helps candidates and recruiters quickly understand a resume and
 
 ```bash
 cd job
-cp .env.example .env   # Add OPENAI_API_KEY and APIFY_API_TOKEN
+cp .env   # Add OPENAI_API_KEY and APIFY_API_TOKEN
 pip install -r requirements.txt
 streamlit run app.py
 ```
@@ -73,7 +73,7 @@ Open **http://localhost:8501** and upload a PDF resume.
 
 3. **Environment**
    ```bash
-   cp .env.example .env
+   cp  .env
    ```
    Edit `.env` and set:
    - `OPENAI_API_KEY` – [OpenAI API keys](https://platform.openai.com/api-keys)
@@ -92,8 +92,6 @@ streamlit run app.py
 Default URL: **http://localhost:8501**
 
 ### MCP Server (stdio)
-
-For Cursor or other MCP clients:
 
 ```bash
 python mcp_server.py
@@ -171,3 +169,4 @@ Tests use mocked external APIs. Ensure `OPENAI_API_KEY` and `APIFY_API_TOKEN` ar
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
