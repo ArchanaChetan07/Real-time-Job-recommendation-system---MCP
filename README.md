@@ -1,100 +1,113 @@
-# Real-time-Job-recommendation-system---MCP
+# Real-time Job Recommendation System (MCP)
 
-Python · multi-agent · LLM · LangChain · FastAPI · Kubernetes · Docker · MCP · CI/CD · MLOps. Repo scale: 30 files; GitHub Actions CI; automated tests; 19 Python modules. Agentic systems with tool use, orchestration, and measurable task outcomes.
+### GPT-4o resume agent with LinkedIn/Naukri job tools via Apify and FastMCP
 
-## Results (numbers)
+[![CI](https://github.com/ArchanaChetan07/Real-time-Job-recommendation-system---MCP/actions/workflows/ci.yml/badge.svg)](https://github.com/ArchanaChetan07/Real-time-Job-recommendation-system---MCP/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Tests](https://img.shields.io/badge/pytest-16%20tests-1f8a4c)](tests/)
+[![MCP](https://img.shields.io/badge/MCP-3%20tools-000000.svg)](mcp_server.py)
 
-| Metric | Value |
+Streamlit app and MCP server that ingests a resume (PDF/text), runs a **plan → analyze → (HITL) → fetch jobs → revise keywords** loop, and returns LinkedIn + Naukri listings. Uses **OpenAI GPT-4o** for summarization/skill-gap/roadmap analysis and **Apify** actors for live job search — with offline pytest mocks when keys are absent.
+
+---
+
+## Key Results
+
+| Metric | Value | Source |
+|---|---|---|
+| Agent tools | **7** (summary, gaps, roadmap, keywords, narrow, LinkedIn, Naukri) | `src/agent/tools.py` |
+| MCP tools | **3** (`fetchlinkedin`, `fetchnaukri`, `run_job_agent`) | `mcp_server.py` |
+| Python modules | **19** under `src/` | git tree |
+| Unit tests | **16** | `tests/` |
+| Resume parsing | PyMuPDF | `requirements.txt` |
+| Job sources | Apify LinkedIn + Naukri actors | `src/job_api.py` |
+| UI | Streamlit (`app.py`) | repo root |
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TB
+    R[Resume PDF/text] --> P[Planner]
+    P --> A1[analyze_summary GPT-4o]
+    P --> A2[analyze_skill_gaps]
+    P --> A3[analyze_roadmap]
+    P --> KW[extract_keywords]
+    KW --> HITL{HITL approve keywords?}
+    HITL --> LI[fetch_linkedin Apify]
+    HITL --> NK[fetch_naukri Apify]
+    LI --> OBS{Too few jobs?}
+    NK --> OBS
+    OBS -->|yes| NR[narrow_keywords]
+    NR --> LI
+    MCP[FastMCP] --> P
+```
+
+**How it works:** the agent extracts searchable keywords from the resume, optionally waits for user approval, queries Apify-backed job APIs, and revises keywords when results are thin. MCP exposes the full loop plus standalone fetch tools for Cursor/Claude Desktop integrations.
+
+---
+
+## Tech Stack
+
+| Layer | Choice |
 |---|---|
-| Tracked repository files | **30** |
-| Python modules | **19** |
-| Notebooks | **0** |
-| Markdown docs | **3** |
-| CI workflows present | **Yes** |
-| Automated tests present | **Yes** |
-| Project highlights | **See repository artifacts for measured results.** |
+| LLM | OpenAI GPT-4o (`openai` SDK) |
+| Job data | `apify-client` actors |
+| MCP | FastMCP stdio server |
+| UI | Streamlit |
+| PDF | PyMuPDF |
+| Tests | pytest |
+| Packaging | Dockerfile |
 
-## Tech stack
+---
 
-- **Primary language:** Python
-- **Languages (GitHub):** Python (36033 bytes), Dockerfile (717 bytes)
-- **Focus area:** agent
-- **Tooling keywords:** Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM
+## Features
 
-## Architecture (logical)
+- Structured trace of planner decisions (`src/tracing.py`)
+- HITL keyword approval in Streamlit (`src/agent/hitl.py`)
+- Comma-separated keyword revision when job counts are low
+- Docker packaging for deployment
+- `.env.example` for `OPENAI_API_KEY`, `APIFY_API_TOKEN`
 
-\\	ext
-Inputs → Processing / models / agents → Evaluation & metrics → CI checks → Artifacts
-\
-## Engineering practices
+---
 
-1. Reproducible layout with clear module boundaries  
-2. Automated validation via CI and/or tests when present  
-3. Documentation that states measurable outcomes, not slogans  
-4. Skill surface aligned to common JD keywords: Python, machine learning, NLP/LLM, Kubernetes, Docker, observability, data pipelines  
+## Installation & Usage
 
-## Quick start
-
-\\ash
+```bash
 git clone https://github.com/ArchanaChetan07/Real-time-Job-recommendation-system---MCP.git
 cd Real-time-Job-recommendation-system---MCP
-# Install project requirements (see requirements.txt / pyproject.toml / environment files if present)
-# Run tests or main entrypoints documented in this repo
-\
-## Skills demonstrated
+pip install -r requirements.txt
+cp .env.example .env
+```
 
-Python · machine-learning · CI/CD · API design · testing · automation · Docker · Kubernetes · FastAPI · Prometheus · data-science · LLM · MLOps · software-engineering · benchmarking · observability
+```bash
+# Offline tests (mocked OpenAI + Apify)
+pytest -q
 
-## License / notice
+# Streamlit UI
+streamlit run app.py
 
-See repository license file if present. Metrics above are derived from repository structure and previously published validation notes where available.
+# MCP server
+python mcp_server.py
+```
 
+---
 
-### Extended notes
+## Project Structure
 
-This section expands documentation for completeness: reproducibility, keyword coverage for Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM, data-science, software-engineering, benchmarking, and observability practices used across the portfolio.
+```text
+Real-time-Job-recommendation-system---MCP/
+├── src/agent/       # loop, planner, tools, HITL
+├── src/job_api.py   # Apify LinkedIn/Naukri fetchers
+├── mcp_server.py    # 3 MCP tools
+├── app.py           # Streamlit UI
+├── tests/           # 16 pytest tests
+└── Dockerfile
+```
 
+---
 
-### Extended notes
+## License
 
-This section expands documentation for completeness: reproducibility, keyword coverage for Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM, data-science, software-engineering, benchmarking, and observability practices used across the portfolio.
-
-
-### Extended notes
-
-This section expands documentation for completeness: reproducibility, keyword coverage for Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM, data-science, software-engineering, benchmarking, and observability practices used across the portfolio.
-
-
-### Extended notes
-
-This section expands documentation for completeness: reproducibility, keyword coverage for Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM, data-science, software-engineering, benchmarking, and observability practices used across the portfolio.
-
-
-### Extended notes
-
-This section expands documentation for completeness: reproducibility, keyword coverage for Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM, data-science, software-engineering, benchmarking, and observability practices used across the portfolio.
-
-
-### Extended notes
-
-This section expands documentation for completeness: reproducibility, keyword coverage for Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM, data-science, software-engineering, benchmarking, and observability practices used across the portfolio.
-
-
-### Extended notes
-
-This section expands documentation for completeness: reproducibility, keyword coverage for Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM, data-science, software-engineering, benchmarking, and observability practices used across the portfolio.
-
-
-### Extended notes
-
-This section expands documentation for completeness: reproducibility, keyword coverage for Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM, data-science, software-engineering, benchmarking, and observability practices used across the portfolio.
-
-
-### Extended notes
-
-This section expands documentation for completeness: reproducibility, keyword coverage for Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM, data-science, software-engineering, benchmarking, and observability practices used across the portfolio.
-
-
-### Extended notes
-
-This section expands documentation for completeness: reproducibility, keyword coverage for Python, machine-learning, CI/CD, API, Docker, Kubernetes, FastAPI, Prometheus, testing, automation, MLOps, LLM, data-science, software-engineering, benchmarking, and observability practices used across the portfolio.
+See repository license file if present.
