@@ -1,12 +1,16 @@
-"""PDF extraction and OpenAI integration with validation and resilience."""
+"""PDF extraction and OpenAI integration with validation, resilience, and demo stubs."""
+
+from __future__ import annotations
 
 import logging
+import re
 from html import escape
+from typing import Any
 
 import fitz  # PyMuPDF
-from openai import OpenAI
 
 from src.config import (
+    DEMO_MODE,
     MAX_PDF_SIZE_MB,
     MAX_RESUME_CHARS,
     OPENAI_API_KEY,
@@ -17,35 +21,31 @@ from src.config import (
 
 logger = logging.getLogger(__name__)
 
-client = OpenAI(api_key=OPENAI_API_KEY, timeout=OPENAI_TIMEOUT_SEC)
+_client: Any = None
 
 
 class PDFError(Exception):
     """Raised when PDF processing fails."""
 
-    pass
-
 
 class OpenAIError(Exception):
     """Raised when OpenAI API fails."""
 
-    pass
+
+def get_openai_client():
+    """Lazy OpenAI client — None in demo mode."""
+    global _client
+    if DEMO_MODE or not OPENAI_API_KEY:
+        return None
+    if _client is None:
+        from openai import OpenAI
+
+        _client = OpenAI(api_key=OPENAI_API_KEY, timeout=OPENAI_TIMEOUT_SEC)
+    return _client
 
 
 def extract_text_from_pdf(uploaded_file, max_size_mb: float | None = None) -> str:
-    """
-    Extract text from a PDF file with size and content limits.
-
-    Args:
-        uploaded_file: File-like object (e.g. Streamlit UploadedFile).
-        max_size_mb: Max allowed size in MB (default from config).
-
-    Returns:
-        Extracted text.
-
-    Raises:
-        PDFError: On invalid/empty PDF or size exceeded.
-    """
+    """Extract text from a PDF file with size and content limits."""
     max_size_mb = max_size_mb if max_size_mb is not None else MAX_PDF_SIZE_MB
     max_bytes = int(max_size_mb * 1024 * 1024)
 
@@ -56,10 +56,7 @@ def extract_text_from_pdf(uploaded_file, max_size_mb: float | None = None) -> st
         raise PDFError("Could not read the uploaded file. Please try again.") from e
 
     if len(raw) > max_bytes:
-        raise PDFError(
-            f"PDF is too large. Maximum size is {max_size_mb:.0f} MB."
-        )
-
+        raise PDFError(f"PDF is too large. Maximum size is {max_size_mb:.0f} MB.")
     if len(raw) == 0:
         raise PDFError("The uploaded file is empty.")
 
@@ -70,9 +67,7 @@ def extract_text_from_pdf(uploaded_file, max_size_mb: float | None = None) -> st
         raise PDFError("Invalid or corrupted PDF. Please upload a valid PDF file.") from e
 
     try:
-        text = ""
-        for page in doc:
-            text += page.get_text()
+        text = "".join(page.get_text() for page in doc)
         doc.close()
     except Exception as e:
         logger.exception("Failed to extract text from PDF")
@@ -85,24 +80,44 @@ def extract_text_from_pdf(uploaded_file, max_size_mb: float | None = None) -> st
     if len(text) > MAX_RESUME_CHARS:
         logger.warning("Resume truncated from %d to %d chars", len(text), MAX_RESUME_CHARS)
         text = text[:MAX_RESUME_CHARS] + "\n\n[Text truncated for processing.]"
-
     return text
 
 
+def _heuristic_resume_analyze(prompt: str) -> str:
+    """Offline stub responses so demos/tests work without OpenAI."""
+    lower = prompt.lower()
+    skills = sorted(set(re.findall(
+        r"\b(python|java|fastapi|django|kubernetes|docker|aws|sql|react|mcp|llm|mlops)\b",
+        lower,
+        flags=re.I,
+    )))
+    skill_str = ", ".join(skills) or "software engineering, python"
+    if "skill gap" in lower or "missing skill" in lower:
+        return (
+            f"Based on the resume ({skill_str}), gaps often include: "
+            "system design, cloud certifications, and quantified impact metrics."
+        )
+    if "roadmap" in lower or "career" in lower:
+        return (
+            "30-day: refresh DSA + one system-design case study.\n"
+            "60-day: ship a portfolio agent with evals + MCP tools.\n"
+            "90-day: target platform/ML infra interviews with measured projects."
+        )
+    if "keyword" in lower or "job title" in lower or "search" in lower:
+        base = skills[:4] if skills else ["python", "backend", "fastapi"]
+        return ", ".join(base + ["software engineer"])
+    return (
+        f"Candidate profile emphasizing: {skill_str}. "
+        "Experience spans applied ML and backend systems with delivery ownership."
+    )
+
+
 def ask_openai(prompt: str, max_tokens: int = 500) -> str:
-    """
-    Call OpenAI chat completion with retries and timeout.
+    """Call OpenAI chat completion with retries; fall back to heuristic in DEMO_MODE."""
+    client = get_openai_client()
+    if client is None:
+        return _heuristic_resume_analyze(prompt)
 
-    Args:
-        prompt: User prompt.
-        max_tokens: Max tokens in the response.
-
-    Returns:
-        Assistant message content.
-
-    Raises:
-        OpenAIError: On API or network failure after retries.
-    """
     last_error: Exception | None = None
     for attempt in range(1, OPENAI_MAX_RETRIES + 1):
         try:

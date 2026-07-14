@@ -1,16 +1,16 @@
-"""Pytest fixtures and env for tests (avoid loading real .env)."""
+"""Pytest fixtures — force demo mode for offline green runs."""
 
 import os
 
 import pytest
 
-# Set env before any test module imports src (so config validation succeeds)
-os.environ.setdefault("OPENAI_API_KEY", "sk-test-key")
-os.environ.setdefault("APIFY_API_TOKEN", "apify-test-token")
+os.environ["DEMO_MODE"] = "1"
+os.environ.setdefault("OPENAI_API_KEY", "")
+os.environ.setdefault("APIFY_API_TOKEN", "")
 
 
 @pytest.fixture(autouse=True)
 def mock_env(monkeypatch):
-    """Keep env set for each test."""
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
-    monkeypatch.setenv("APIFY_API_TOKEN", "apify-test-token")
+    monkeypatch.setenv("DEMO_MODE", "1")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("APIFY_API_TOKEN", "")

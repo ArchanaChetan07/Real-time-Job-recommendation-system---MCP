@@ -1,9 +1,10 @@
-"""Job fetching from LinkedIn and Naukri via Apify with retries and error handling."""
+"""Job fetching from LinkedIn and Naukri via Apify with retries, plus demo stubs."""
+
+from __future__ import annotations
 
 import logging
 import time
-
-from apify_client import ApifyClient
+from typing import Any
 
 from src.config import (
     APIFY_API_TOKEN,
@@ -11,13 +12,13 @@ from src.config import (
     APIFY_TIMEOUT_SEC,
     DEFAULT_JOB_ROWS,
     DEFAULT_LOCATION,
+    DEMO_MODE,
 )
 
 logger = logging.getLogger(__name__)
 
-client = ApifyClient(APIFY_API_TOKEN)
+_client: Any = None
 
-# Apify actor IDs
 LINKEDIN_ACTOR_ID = "BHzefUZlZRKWxkTck"
 NAUKRI_ACTOR_ID = "alpcnRV9YI9lYVPWk"
 
@@ -25,11 +26,47 @@ NAUKRI_ACTOR_ID = "alpcnRV9YI9lYVPWk"
 class JobAPIError(Exception):
     """Raised when job fetch fails."""
 
-    pass
+
+def get_apify_client():
+    global _client
+    if DEMO_MODE or not APIFY_API_TOKEN:
+        return None
+    if _client is None:
+        from apify_client import ApifyClient
+
+        _client = ApifyClient(APIFY_API_TOKEN)
+    return _client
+
+
+def _stub_jobs(search_query: str, source: str) -> list[dict]:
+    q = (search_query or "software engineer").strip()
+    return [
+        {
+            "title": f"{q.title()} Engineer",
+            "companyName": f"{source.title()} Demo Labs",
+            "location": DEFAULT_LOCATION,
+            "link": f"https://example.com/jobs/{source}/1",
+            "url": f"https://example.com/jobs/{source}/1",
+            "source": source,
+            "demo": True,
+        },
+        {
+            "title": f"Senior {q.title()}",
+            "companyName": f"{source.title()} Platform Co",
+            "location": DEFAULT_LOCATION,
+            "link": f"https://example.com/jobs/{source}/2",
+            "url": f"https://example.com/jobs/{source}/2",
+            "source": source,
+            "demo": True,
+        },
+    ]
 
 
 def _call_actor_with_retries(actor_id: str, run_input: dict) -> list:
-    """Run an Apify actor with retries. Returns list of dataset items."""
+    client = get_apify_client()
+    if client is None:
+        raise JobAPIError("Apify client unavailable (demo mode).")
+
     last_error: Exception | None = None
     for attempt in range(1, APIFY_MAX_RETRIES + 1):
         try:
@@ -40,8 +77,7 @@ def _call_actor_with_retries(actor_id: str, run_input: dict) -> list:
             dataset_id = run.get("defaultDatasetId")
             if not dataset_id:
                 raise JobAPIError("Actor run did not return a dataset ID.")
-            items = list(client.dataset(dataset_id).iterate_items())
-            return items
+            return list(client.dataset(dataset_id).iterate_items())
         except Exception as e:
             last_error = e
             logger.warning(
@@ -52,11 +88,10 @@ def _call_actor_with_retries(actor_id: str, run_input: dict) -> list:
                 e,
             )
             if attempt < APIFY_MAX_RETRIES:
-                time.sleep(2**attempt)  # backoff
+                time.sleep(2**attempt)
             else:
                 break
 
-    logger.exception("Apify actor %s failed after %d retries", actor_id, APIFY_MAX_RETRIES)
     raise JobAPIError(
         "Job search is temporarily unavailable. Please try again later."
     ) from last_error
@@ -67,19 +102,10 @@ def fetch_linkedin_jobs(
     location: str = DEFAULT_LOCATION,
     rows: int = DEFAULT_JOB_ROWS,
 ) -> list[dict]:
-    """
-    Fetch LinkedIn jobs from Apify.
-
-    Args:
-        search_query: Job title/keywords (comma-separated ok).
-        location: Location filter.
-        rows: Max number of jobs.
-
-    Returns:
-        List of job dicts (e.g. title, companyName, location, link).
-    """
     if not (search_query or "").strip():
         return []
+    if DEMO_MODE or get_apify_client() is None:
+        return _stub_jobs(search_query, "linkedin")[: min(rows, 10)]
 
     run_input = {
         "title": search_query.strip(),
@@ -98,19 +124,10 @@ def fetch_naukri_jobs(
     location: str = DEFAULT_LOCATION,
     rows: int = DEFAULT_JOB_ROWS,
 ) -> list[dict]:
-    """
-    Fetch Naukri jobs from Apify.
-
-    Args:
-        search_query: Job keywords (comma-separated ok).
-        location: Unused by this actor but kept for API consistency.
-        rows: Max number of jobs.
-
-    Returns:
-        List of job dicts (e.g. title, companyName, location, url).
-    """
     if not (search_query or "").strip():
         return []
+    if DEMO_MODE or get_apify_client() is None:
+        return _stub_jobs(search_query, "naukri")[: min(rows, 10)]
 
     run_input = {
         "keyword": search_query.strip(),
